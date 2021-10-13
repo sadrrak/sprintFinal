@@ -58,7 +58,7 @@ ISR (TIMER0_COMPA_vect){
 }
 
 ISR (INT0_vect){	
-		cameraSemaforo(); // chamando funcao dentro da interrupcao p verificar se passou veículo no vermelho			
+	cameraSemaforo(); // chamando funcao dentro da interrupcao p verificar se passou veículo no vermelho			
 }
 
 void semaforoPedestre( int8_t aux){	
@@ -79,9 +79,8 @@ void acionaSinal(int8_t data){	//Recebe a posição de ESTADOS[] e realiza a ope
 }
 
 void cameraSemaforo(){ //Camera que capta se algum veículo passou no vermelho
-		if(PORTB==0b011110000 || PORTB==0b001110000 || PORTB==0b000110000 || PORTB==0b000010000)
-			PORTD |= 0b00000001;	//aciona camera	
-			
+	if(PORTB==0b011110000 || PORTB==0b001110000 || PORTB==0b000110000 || PORTB==0b000010000)
+		PORTD |= 0b00000001;	//aciona camera		
 		
 }
 
