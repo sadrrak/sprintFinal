@@ -15,21 +15,19 @@ void acionaSinal(int8_t );
 void semaforoEscravo(int8_t );
 void cameraSemaforo();
 void semaforoPedestre(int8_t);
+void configRegSlave();
+
+uint8_t flagShot=0;
+uint32_t tempo_ms=0;
 int main(void)
 {
     DDRB=0xff; //hablitando todos os pinos da porta B como saída
 	DDRD=0x81; //habilitando o pno d7 e d0 como saída amarelo e camera
 	DDRC=0b0000111; //c6 entrada c2..c0 saída
 	PORTB=0x00; //Iniciando desligadas ja que depende da info do mestre
-	PORTD=0x00; //amarelo desligado e d0 desligado (camera)
-	PORTC=0b1000000;//borda de descida para carro que passa no vermelho
-	//Usart Config
-	UBRR0H= (unsigned char)(MYUBRR>>8); //ajusta taxa de transmissão, parte alta
-	UBRR0L= (unsigned char)MYUBRR; //ajusta a taxa de transmissão, parte baixa
-	UCSR0B= (1<<RXCIE0)|(1<<RXEN0)|(1<<TXEN0); //habilitando interrupção do receptor, habilita transmissor e receptor
-	UCSR0C= (3<<UCSZ00); //ajuste de formato do frame 8 bits de dados, 1 de parada, no parity
-	
-	sei();//habilitando as interrupções
+	PORTD=0x04; //amarelo desligado e d0 desligado (camera) e d2 em NAA (borda de descida para carro que passa no vermelho)
+	//PORTC=0b1000000;
+	configRegSlave();	
     while (1) 
     {
 		
@@ -45,12 +43,22 @@ void semaforoEscravo(int8_t received){
 		PORTD |= 0b10000000;	//ligando amarelo
 	else
 		PORTD &= 0b01111111;	//apagando amarelo
-	cameraSemaforo();
+	
 }
 
 ISR(USART0_RX_vect){
 		
-	semaforoEscravo(UDR0-'0');	
+	semaforoEscravo(UDR0-'0');	//recebendo dado do mestre
+}
+
+ISR (TIMER0_COMPA_vect){
+	tempo_ms++;//incrementando a váriavel
+	if(tempo_ms%500 == 0)// tempo_ms eh meio segundo? se sim, desliga o "shot" da camera
+		PORTD &= 0b11111110; //desligando a camera 
+}
+
+ISR (INT0_vect){	
+		cameraSemaforo(); // chamando funcao dentro da interrupcao p verificar se passou veículo no vermelho			
 }
 
 void semaforoPedestre( int8_t aux){	
@@ -71,13 +79,30 @@ void acionaSinal(int8_t data){	//Recebe a posição de ESTADOS[] e realiza a opera
 }
 
 void cameraSemaforo(){ //Camera que capta se algum veículo passou no vermelho
+		if(PORTB==0b011110000 || PORTB==0b001110000 || PORTB==0b000110000 || PORTB==0b000010000)
+			PORTD |= 0b00000001;	//aciona camera	
+			
+		
+}
+
+void configRegSlave(){
+	//Para INT0
+	EICRA= 0b00000010;	//interrupção externa INT0 na borda de descida
+	EIMSK= 0b00000001; //habilitação das interrupção externa INT0
 	
-	if(PORTB==0b011110000 || PORTB==0b001110000 || PORTB==0b000110000 || PORTB==0b000010000){
-		if((PINC & 0b1000000) ==0)
-			PORTD |= 0b00000001;	//aciona camera			
-		else
-			PORTD &= 0b11111110;//camera desativada
-	}
+	//TIMER0
+	TCCR0A= 0b00000010;
+	TCCR0B= 0b00000011; //ligando TC0 com prescaler= 64
+	OCR0A= 249; //define um limite de contagem para TC0
+	TIMSK0= 0b00000010; //habilitando a interrupção na igualdade de OCR0A. A interrrupção chega em 1ms (64*(249+1)/16M Hz)
+	
+	//Usart Config
+	UBRR0H= (unsigned char)(MYUBRR>>8); //ajusta taxa de transmissão, parte alta
+	UBRR0L= (unsigned char)MYUBRR; //ajusta a taxa de transmissão, parte baixa
+	UCSR0B= (1<<RXCIE0)|(1<<RXEN0)|(1<<TXEN0); //habilitando interrupção do receptor, habilita transmissor e receptor
+	UCSR0C= (3<<UCSZ00); //ajuste de formato do frame 8 bits de dados, 1 de parada, no parity
+	
+	sei();//habilitando as interrupções
 }
 	
 	
